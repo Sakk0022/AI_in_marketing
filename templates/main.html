@@ -264,14 +264,14 @@
                 <td>{{ campaign.id }}</td>
                 <td>{{ campaign.name }}</td>
                 <td>${{ "%.2f"|format(campaign.budget) if campaign.budget else "0.00" }}</td>
-                <td>{{ campaign.ad_text|default('N/A')|truncate(50) }}</td>
-                <td>{{ campaign.platforms|default('N/A') }}</td>
-                <td>{{ campaign.status|default('draft') }}</td>
-                <td>{{ campaign.budget_distribution|default('N/A')|truncate(50) }}</td>
-                <td>{{ campaign.real_time_data|default('N/A')|truncate(50) }}</td>
-                <td>{{ campaign.ab_testing_plans|default('N/A')|truncate(50) }}</td>
+                <td>{{ campaign.ad_text|default('N/A', true)|truncate(50) }}</td>
+                <td>{{ campaign.platforms|default('N/A', true) }}</td>
+                <td>{{ campaign.status|default('draft', true) }}</td>
+                <td>{{ campaign.budget_distribution|default('N/A', true)|truncate(50) }}</td>
+                <td>{{ campaign.real_time_data|default('N/A', true)|truncate(50) }}</td>
+                <td>{{ campaign.ab_testing_plans|default('N/A', true)|truncate(50) }}</td>
                 <td>
-                    <a href="{{ url_for('download_row', campaign_id=campaign.id) }}" 
+                    <a href="{{ url_for('download_row', cid=campaign.id) }}" 
                        class="btn btn-sm btn-outline-primary" 
                        title="Download this row as .txt">
                         Скачать
