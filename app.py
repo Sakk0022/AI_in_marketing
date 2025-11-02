@@ -6,14 +6,13 @@ import google.generativeai as genai
 import requests
 import re
 import json
-from bs4 import BeautifulSoup
 from pulp import *
 from deep_translator import GoogleTranslator
 from lingua import Language, LanguageDetectorBuilder
 
 # === Настройки ===
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-os.environ['TOKENIZERS_PARALLELISM'] = 'false'  # Убираем предупреждение
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -37,7 +36,7 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# === Язык: Ограничены EN, RU, KZ для экономии памяти ===
+# === Язык ===
 language_detector = LanguageDetectorBuilder.from_languages(Language.ENGLISH, Language.RUSSIAN, Language.KAZAKH).build()
 
 def detect_language(text):
@@ -53,7 +52,7 @@ def translate_to_english(text, src):
     if src == 'en': return text
     return GoogleTranslator(source=src, target='en').translate(text)
 
-# === RAG: в памяти (без chromadb) ===
+# === RAG ===
 RAG_DOCS = [
     "Ad text must not promote illegal activities, scams, hate speech, or violence.",
     "Ensure ads are truthful, not misleading, and comply with platform policies.",
@@ -83,6 +82,7 @@ class Campaign(db.Model):
     budget_distribution = db.Column(db.Text)
     real_time_data = db.Column(db.Text)
     ab_testing_plans = db.Column(db.Text)
+    status = db.Column(db.String(20), default='draft')  # Добавлено
 
 with app.app_context():
     db.create_all()
@@ -148,45 +148,52 @@ def chat():
     plats = None
 
     lower = en_msg.lower()
+
+    # === CREATE CAMPAIGN ===
     if 'create campaign' in lower:
-        name = re.search(r'create campaign\s*(?:named)?\s*(.+)', en_msg, re.I)
-        name = (name.group(1).strip() if name else "New Campaign")
+        name_match = re.search(r'create campaign\s*(?:named)?\s*(.+)', en_msg, re.I)
+        name = name_match.group(1).strip() if name_match else "Untitled Campaign"
+        name = name or "Untitled Campaign"
+        if len(name) > 100:
+            name = name[:97] + "..."
+
         if current_user.is_authenticated:
-            c = Campaign(user_id=current_user.id, name=name)
-            db.session.add(c); db.session.commit()
+            c = Campaign(user_id=current_user.id, name=name, status='draft')
+            db.session.add(c)
+            db.session.commit()
             session['current_campaign_id'] = c.id
-            resp = f"Campaign '{name}' created."
+            resp = f"Campaign '{name}' created (ID: {c.id})."
         else:
             resp = "Login required."
-    elif 'switch campaign' in lower:
-    # Извлекаем всё после "switch campaign"
-    match = re.search(r'switch\s+campaign\s+(.+)', en_msg, re.I)
-    if match and current_user.is_authenticated:
-        search_term = match.group(1).strip()
-        # Ищем по ID или по имени (частичное совпадение)
-        c = None
-        if search_term.isdigit():
-            c = Campaign.query.filter_by(id=int(search_term), user_id=current_user.id).first()
-        else:
-            # Частичное совпадение по имени
-            c = Campaign.query.filter(
-                Campaign.name.ilike(f"%{search_term}%"),
-                Campaign.user_id == current_user.id
-            ).first()
 
-        if c:
-            session['current_campaign_id'] = c.id
-            resp = f"Switched to '{c.name}' (ID: {c.id})."
-        else:
-            # Подсказываем, какие есть
-            all_camps = Campaign.query.filter_by(user_id=current_user.id).all()
-            if all_camps:
-                names = ", ".join([f"{camp.name} (ID: {camp.id})" for camp in all_camps])
-                resp = f"Not found. Available: {names}"
+    # === SWITCH CAMPAIGN ===
+    elif 'switch campaign' in lower:
+        match = re.search(r'switch\s+campaign\s+(.+)', en_msg, re.I)
+        if match and current_user.is_authenticated:
+            search_term = match.group(1).strip()
+            c = None
+            if search_term.isdigit():
+                c = Campaign.query.filter_by(id=int(search_term), user_id=current_user.id).first()
             else:
-                resp = "No campaigns yet. Create one first."
-    else:
-        resp = "Usage: `switch campaign <name or ID>`"
+                c = Campaign.query.filter(
+                    Campaign.name.ilike(f"%{search_term}%"),
+                    Campaign.user_id == current_user.id
+                ).first()
+
+            if c:
+                session['current_campaign_id'] = c.id
+                resp = f"Switched to '{c.name}' (ID: {c.id})."
+            else:
+                all_camps = Campaign.query.filter_by(user_id=current_user.id).all()
+                if all_camps:
+                    names = ", ".join([f"{camp.name} (ID: {camp.id})" for camp in all_camps])
+                    resp = f"Not found. Available: {names}"
+                else:
+                    resp = "No campaigns yet. Create one first."
+        else:
+            resp = "Usage: `switch campaign <name or ID>`"
+
+    # === OTHER COMMANDS ===
     else:
         if any(x in lower for x in ['ad text', 'generate ad']):
             text = generate_ad_text(en_msg)
@@ -214,6 +221,7 @@ def chat():
         else:
             resp = model.generate_content(f"{en_msg}\nContext: {rag_context(en_msg)}").text
 
+        # Сохранение в текущую кампанию
         if key and current_user.is_authenticated and (cid := session.get('current_campaign_id')):
             c = Campaign.query.get(cid)
             if c and c.user_id == current_user.id:
@@ -229,7 +237,6 @@ def chat():
 @login_required
 def dashboard():
     campaigns = Campaign.query.filter_by(user_id=current_user.id).all()
-    # Преобразование в словари, чтобы заменить None на 'N/A' и избежать ошибок в шаблоне
     campaigns_data = [
         {
             'id': c.id,
@@ -237,6 +244,7 @@ def dashboard():
             'budget': c.budget if c.budget is not None else 0.0,
             'ad_text': c.ad_text or 'N/A',
             'platforms': c.platforms or 'N/A',
+            'status': c.status or 'draft',
             'budget_distribution': c.budget_distribution or 'N/A',
             'real_time_data': c.real_time_data or 'N/A',
             'ab_testing_plans': c.ab_testing_plans or 'N/A',
@@ -248,16 +256,20 @@ def dashboard():
 @login_required
 def download_row(cid):
     c = Campaign.query.get_or_404(cid)
-    if c.user_id != current_user.id: return "Unauthorized", 403
+    if c.user_id != current_user.id:
+        return "Unauthorized", 403
     content = f"""=== Campaign ===
-ID: {c.id} | Name: {c.name} | Budget: ${c.budget if c.budget is not None else 0.0}
+ID: {c.id} | Name: {c.name} | Budget: ${c.budget or 0.0}
 Ad: {c.ad_text or 'N/A'}
 Platforms: {c.platforms or 'N/A'}
 Distribution: {c.budget_distribution or 'N/A'}
 Data: {c.real_time_data or 'N/A'}
 A/B: {c.ab_testing_plans or 'N/A'}
+Status: {c.status or 'draft'}
 """
-    return Response(content, mimetype='text/plain', headers={"Content-Disposition": f"attachment; filename=campaign_{cid}.txt"})
+    return Response(content, mimetype='text/plain', headers={
+        "Content-Disposition": f"attachment; filename=campaign_{cid}.txt"
+    })
 
 @app.route('/compliance_check', methods=['GET', 'POST'])
 def compliance_check():
@@ -273,7 +285,8 @@ def compliance_check():
 def register():
     if request.method == 'POST':
         u = User(username=request.form['username'], password=request.form['password'], email=request.form['email'])
-        db.session.add(u); db.session.commit()
+        db.session.add(u)
+        db.session.commit()
         return redirect(url_for('login'))
     return render_template('main.html', page='register')
 
@@ -291,4 +304,3 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('home'))
-
