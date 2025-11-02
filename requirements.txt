@@ -1,0 +1,13 @@
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.3
+psycopg2-binary==2.9.7
+google-generativeai==0.3.2
+sentence-transformers==2.2.2
+chromadb==0.4.24
+deep-translator==1.11.4
+lingua-language-detector==2.0.2
+beautifulsoup4==4.12.2
+requests==2.31.0
+pulp==2.7.0
+gunicorn==21.2.0
