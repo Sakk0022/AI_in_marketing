@@ -34,7 +34,7 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY is not set!")
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # === Язык ===
 language_detector = LanguageDetectorBuilder.from_languages(Language.ENGLISH, Language.RUSSIAN, Language.KAZAKH).build()
@@ -304,3 +304,4 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('home'))
+
