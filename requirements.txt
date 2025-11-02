@@ -4,7 +4,7 @@ Flask-Login==0.6.3
 psycopg2-binary==2.9.9
 google-generativeai==0.7.2
 sentence-transformers==3.0.1
-chromadb==0.5.3
+chromadb==1.2.1
 deep-translator==1.11.4
 lingua-language-detector==2.0.2
 beautifulsoup4==4.12.3
@@ -14,4 +14,5 @@ gunicorn==22.0.0
 torch==2.4.0
 transformers==4.44.2
 huggingface-hub==0.24.6
+
 
