@@ -1,7 +1,7 @@
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
 Flask-Login==0.6.3
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
 google-generativeai==0.7.2
 deep-translator==1.11.4
 lingua-language-detector==1.4.2
@@ -9,3 +9,4 @@ beautifulsoup4==4.12.3
 requests==2.32.3
 PuLP==2.8.0
 gunicorn==22.0.0
+
