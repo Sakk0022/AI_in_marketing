@@ -4,15 +4,9 @@ Flask-Login==0.6.3
 psycopg2-binary==2.9.10
 google-generativeai==0.7.2
 deep-translator==1.11.4
-lingua-language-detector==1.4.2
+lingua-language-detector==2.0.2  
 beautifulsoup4==4.12.3
 requests==2.32.3
 PuLP==2.8.0
 gunicorn==22.0.0
-sentence-transformers==3.1.1
-chromadb==1.2.1
-transformers
-tokenizers
-sentencepiece==0.2.0
-
-
+gevent==24.10.0  
