@@ -159,18 +159,34 @@ def chat():
         else:
             resp = "Login required."
     elif 'switch campaign' in lower:
-        m = re.search(r'switch.*?(\d+|\w+)', en_msg, re.I)
-        if m and current_user.is_authenticated:
-            val = m.group(1)
-            c = (Campaign.query.filter_by(id=int(val)).first() if val.isdigit() else
-                 Campaign.query.filter_by(name=val).first())
-            if c and c.user_id == current_user.id:
-                session['current_campaign_id'] = c.id
-                resp = f"Switched to '{c.name}'."
-            else:
-                resp = "Not found."
+    # Извлекаем всё после "switch campaign"
+    match = re.search(r'switch\s+campaign\s+(.+)', en_msg, re.I)
+    if match and current_user.is_authenticated:
+        search_term = match.group(1).strip()
+        # Ищем по ID или по имени (частичное совпадение)
+        c = None
+        if search_term.isdigit():
+            c = Campaign.query.filter_by(id=int(search_term), user_id=current_user.id).first()
         else:
-            resp = "Specify ID or name."
+            # Частичное совпадение по имени
+            c = Campaign.query.filter(
+                Campaign.name.ilike(f"%{search_term}%"),
+                Campaign.user_id == current_user.id
+            ).first()
+
+        if c:
+            session['current_campaign_id'] = c.id
+            resp = f"Switched to '{c.name}' (ID: {c.id})."
+        else:
+            # Подсказываем, какие есть
+            all_camps = Campaign.query.filter_by(user_id=current_user.id).all()
+            if all_camps:
+                names = ", ".join([f"{camp.name} (ID: {camp.id})" for camp in all_camps])
+                resp = f"Not found. Available: {names}"
+            else:
+                resp = "No campaigns yet. Create one first."
+    else:
+        resp = "Usage: `switch campaign <name or ID>`"
     else:
         if any(x in lower for x in ['ad text', 'generate ad']):
             text = generate_ad_text(en_msg)
@@ -275,3 +291,4 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('home'))
+
