@@ -212,14 +212,35 @@ def chat():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('main.html', page='dashboard', campaigns=Campaign.query.filter_by(user_id=current_user.id).all())
+    campaigns = Campaign.query.filter_by(user_id=current_user.id).all()
+    # Преобразование в словари, чтобы заменить None на 'N/A' и избежать ошибок в шаблоне
+    campaigns_data = [
+        {
+            'id': c.id,
+            'name': c.name,
+            'budget': c.budget if c.budget is not None else 0.0,
+            'ad_text': c.ad_text or 'N/A',
+            'platforms': c.platforms or 'N/A',
+            'budget_distribution': c.budget_distribution or 'N/A',
+            'real_time_data': c.real_time_data or 'N/A',
+            'ab_testing_plans': c.ab_testing_plans or 'N/A',
+        } for c in campaigns
+    ]
+    return render_template('main.html', page='dashboard', campaigns=campaigns_data)
 
 @app.route('/download_row/<int:cid>')
 @login_required
 def download_row(cid):
     c = Campaign.query.get_or_404(cid)
     if c.user_id != current_user.id: return "Unauthorized", 403
-    content = f"ID: {c.id}\nName: {c.name}\nBudget: ${c.budget}\nAd: {c.ad_text or 'N/A'}\n..."
+    content = f"""=== Campaign ===
+ID: {c.id} | Name: {c.name} | Budget: ${c.budget if c.budget is not None else 0.0}
+Ad: {c.ad_text or 'N/A'}
+Platforms: {c.platforms or 'N/A'}
+Distribution: {c.budget_distribution or 'N/A'}
+Data: {c.real_time_data or 'N/A'}
+A/B: {c.ab_testing_plans or 'N/A'}
+"""
     return Response(content, mimetype='text/plain', headers={"Content-Disposition": f"attachment; filename=campaign_{cid}.txt"})
 
 @app.route('/compliance_check', methods=['GET', 'POST'])
