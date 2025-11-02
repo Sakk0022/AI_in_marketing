@@ -15,7 +15,7 @@ from pulp import *
 import tempfile
 # === Настройки ===
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-app = Flask(**name**)
+app = Flask(__name__)
 app.secret_key = os.urandom(24)
 DATABASE_URL = os.getenv('DATABASE_URL')
 if not DATABASE_URL:
@@ -270,4 +270,5 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('home'))
+
 
