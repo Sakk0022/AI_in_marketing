@@ -17,10 +17,12 @@ import tempfile
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 app = Flask(**name**)
 app.secret_key = os.urandom(24)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set in environment variables!")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-if not app.config['SQLALCHEMY_DATABASE_URI']:
-    raise ValueError("DATABASE_URL is not set!")
 db = SQLAlchemy(app)
 # Flask-Login
 login_manager = LoginManager()
@@ -268,3 +270,4 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('home'))
+
